@@ -110,6 +110,12 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
     bufferEle = 0;
     bufferRad = 0;
     
+    float aziSin = 0;
+    float aziCos = 0;
+    
+    float timestepAziCos = 0;
+    float timestepAziSin = 0;
+    
     // Get input audio from microphone
     for(int ch = 0; ch < bufferToFill.buffer->getNumChannels(); ch++ ){
         for(int sample = 0; sample < bufferToFill.buffer->getNumSamples(); sample++ ){
@@ -168,7 +174,15 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
             if(diffuseness[sample] > 0.9){
                 if(!std::isnan(azimuth[sample])){
                     
-                    bufferAzi += azimuth[sample];
+                    if(azimuth[sample] < 0){
+                        aziSin += std::sin(MathConstants<float>::twoPi - azimuth[sample]);
+                        aziCos += std::cos(MathConstants<float>::twoPi - azimuth[sample]);
+                    } else {
+                        aziSin += std::sin(azimuth[sample]);
+                        aziCos += std::cos(azimuth[sample]);;
+                    }
+
+                    //bufferAzi += azimuth[sample];
                     bufferEle += elevation[sample];
                     bufferRad += radius[sample];
                     
@@ -177,12 +191,19 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
             }
         }
         
-        bufferAzi = bufferAzi/counter;
+        aziSin = aziSin/counter;
+        aziCos = aziCos/counter;
+        
+        bufferAzi = std::atan2(aziSin, aziCos);
+        
+        //bufferAzi = bufferAzi/counter;
         bufferEle = bufferEle/counter;
         bufferRad = bufferRad/counter;
         
         
         if(bufferCounter == 100){
+            
+            
             timestepAzi = timestepAzi/bufferCounter;
             timestepEle = timestepEle/bufferCounter;
             timestepRad = timestepRad/bufferCounter;
@@ -197,6 +218,7 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
             timestepRad = 0;
         }
         else{
+            
             timestepAzi += bufferAzi;
             timestepEle += bufferEle;
             timestepRad += bufferRad;
@@ -266,7 +288,7 @@ void MainComponent::releaseResources()
 //==============================================================================
 std::complex<float>** MainComponent::getComplexFFTBuffer(float** fftBuffer, size_t numSamples)
 {
-    std::complex<float>** complexFFTBuffer = (std::complex<float>**)calloc(numSamples,sizeof(std::complex<float>*));
+    std::complex<float>** complexFFTBuffer = (std::complex<float>**)calloc(N_CH,sizeof(std::complex<float>*));
     for(int i = 0; i < N_CH; i++ ){
         complexFFTBuffer[i] = (std::complex<float>*)calloc(numSamples,sizeof(std::complex<float>));
     }
@@ -393,6 +415,8 @@ void MainComponent::cart2Sph(float** doa, size_t numSamples){
         
         azimuth[sample] = std::atan2(doa[1][sample], doa[0][sample]);
         
+        //std::cout << "z: " << doa[2][sample] << std::endl;
+        //std::cout << "x_y: " << std::sqrt(x_y) << std::endl;
         elevation[sample] = std::atan2(doa[2][sample], std::sqrt(x_y));
     }
     
