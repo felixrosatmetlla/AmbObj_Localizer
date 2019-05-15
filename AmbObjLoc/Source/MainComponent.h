@@ -38,7 +38,7 @@ public:
     void resized() override;
     
     //==============================================================================
-    std::complex<float>** getComplexFFTBuffer(float** fftBuffer, size_t numSamples);
+    std::complex<float>** getComplexFFTBuffer(float** fftBuffer, size_t fftSize);
     
     std::complex<float>* getPressure(std::complex<float>** complexFFTBuffer, size_t numSamples);
     std::complex<float>** getVelocityVector(std::complex<float>** complexFFTBuffer, size_t numSamples);

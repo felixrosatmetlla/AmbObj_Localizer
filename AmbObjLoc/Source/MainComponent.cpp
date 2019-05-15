@@ -72,9 +72,8 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRat
     
     fftBuffer = (float**)calloc(N_CH, sizeof(float*));
     for(int i = 0; i < N_CH; i++ ){
-        fftBuffer[i] = (float*)calloc(num_frames*2,sample_size_bytes);
+        fftBuffer[i] = (float*)calloc(forwardFFT.getSize()*2,sample_size_bytes);
     }
-    
     
     bufferEnergy = (float*)calloc(N_CH,sample_size_bytes);
     
@@ -113,9 +112,6 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
     float aziSin = 0;
     float aziCos = 0;
     
-    float timestepAziCos = 0;
-    float timestepAziSin = 0;
-    
     // Get input audio from microphone
     for(int ch = 0; ch < bufferToFill.buffer->getNumChannels(); ch++ ){
         for(int sample = 0; sample < bufferToFill.buffer->getNumSamples(); sample++ ){
@@ -137,13 +133,25 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
         }
         
         /*for(int ch=0; ch<4; ch++){
-            for(int sample = 0; sample<bufferToFill.buffer->getNumSamples(); sample++){
-                std::cout << "fft: " << fftBuffer[ch][sample] << std::endl;
+            for(int sample = 0; sample<bufferToFill.buffer->getNumSamples()*2; sample++){
+                if(sample == bufferToFill.buffer->getNumSamples()/2+1){
+                    std::cout << "size: " << bufferToFill.buffer->getNumSamples()/2+1 << std::endl;
+                    std::cout << "fft: " << fftBuffer[ch][sample] << std::endl;
+                }
+                if(sample == bufferToFill.buffer->getNumSamples()+1){
+                    std::cout << "size: " << bufferToFill.buffer->getNumSamples() << std::endl;
+                    std::cout << "fft: " << fftBuffer[ch][sample] << std::endl;
+                }
+                if(sample == bufferToFill.buffer->getNumSamples()*2-7){
+                    std::cout << "size: " << bufferToFill.buffer->getNumSamples()*2 << std::endl;
+                    std::cout << "fft: " << fftBuffer[ch][sample] << std::endl;
+                }
+                //std::cout << "fft: " << fftBuffer[ch][sample] << std::endl;
                 
             }
         }*/
         
-        std::complex<float>** complexFFTBuffer = getComplexFFTBuffer(fftBuffer, bufferToFill.buffer->getNumSamples());
+        std::complex<float>** complexFFTBuffer = getComplexFFTBuffer(fftBuffer, forwardFFT.getSize() + 1);
         
         /*for(int ch=0; ch<4; ch++){
             for(int sample = 0; sample<bufferToFill.buffer->getNumSamples(); sample++){
@@ -153,15 +161,15 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
         }*/
 
         
-        getDOA(complexFFTBuffer, bufferToFill.buffer->getNumSamples());
+        getDOA(complexFFTBuffer, forwardFFT.getSize() + 1);
         
-        /*for(int sample = 0; sample<bufferToFill.buffer->getNumSamples(); sample++){
+        /*for(int sample = 0; sample<forwardFFT.getSize() + 1; sample++){
             std::cout << "azi: " << azimuth[sample] << std::endl;
             std::cout << "ele: " << elevation[sample] << std::endl;
             //std::cout << "radius: " << radius[sample] << std::endl;
         }*/
         
-        getDifuseness(complexFFTBuffer, bufferToFill.buffer->getNumSamples());
+        getDifuseness(complexFFTBuffer, forwardFFT.getSize() + 1);
         
         /*for(int sample = 0; sample<bufferToFill.buffer->getNumSamples(); sample++){
             std::cout << "difuseness: " << diffuseness[sample] << std::endl;
@@ -170,7 +178,7 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
         
         int counter = 0;
         
-        for(int sample = 0; sample < bufferToFill.buffer->getNumSamples(); sample++){
+        for(int sample = 0; sample < forwardFFT.getSize() + 1; sample++){
             if(diffuseness[sample] > 0.9){
                 if(!std::isnan(azimuth[sample])){
                     
@@ -286,15 +294,15 @@ void MainComponent::releaseResources()
 }
 
 //==============================================================================
-std::complex<float>** MainComponent::getComplexFFTBuffer(float** fftBuffer, size_t numSamples)
+std::complex<float>** MainComponent::getComplexFFTBuffer(float** fftBuffer, size_t fftSize)
 {
     std::complex<float>** complexFFTBuffer = (std::complex<float>**)calloc(N_CH,sizeof(std::complex<float>*));
     for(int i = 0; i < N_CH; i++ ){
-        complexFFTBuffer[i] = (std::complex<float>*)calloc(numSamples,sizeof(std::complex<float>));
+        complexFFTBuffer[i] = (std::complex<float>*)calloc(fftSize,sizeof(std::complex<float>));
     }
     
     for(int channel = 0; channel < N_CH; channel++){
-        for(int sample = 0, fftsample = 0; sample < numSamples/2; sample++, fftsample+=2){
+        for(int sample = 0, fftsample = 0; sample < fftSize; sample++, fftsample+=2){
             complexFFTBuffer[channel][sample].real(fftBuffer[channel][fftsample]);
             complexFFTBuffer[channel][sample].imag(fftBuffer[channel][fftsample+1]);
             //std::cout << "complex: " << complexFFTBuffer[channel][sample] << std::endl;
