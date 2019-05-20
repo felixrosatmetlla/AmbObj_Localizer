@@ -14,14 +14,19 @@
 #define p0 1.1839
 #define N_CH 4
 
-#define noiseLevel 1e-5
+#define visualizer_W 285
+#define visualizer_H 90
+
+#define azi_resolution 314
+#define ele_resolution 157
+
 
 //==============================================================================
 /*
     This component lives inside our window, and this is where you should put all
     your controls and content.
 */
-class MainComponent   : public AudioAppComponent
+class MainComponent   : public AudioAppComponent, private Timer
 {
 public:
     //==============================================================================
@@ -37,6 +42,8 @@ public:
     void paint (Graphics& g) override;
     void resized() override;
     
+    void paintDoA ();
+    
     //==============================================================================
     std::complex<float>** getComplexFFTBuffer(float** fftBuffer, size_t fftSize);
     
@@ -51,6 +58,10 @@ public:
     
     void cart2Sph(float** doa, size_t numSamples);
 
+    //==============================================================================
+    void timerCallback() override;
+    
+    
 private:
     //==============================================================================
     // Audio Variables
@@ -72,15 +83,33 @@ private:
     float bufferRad;
     
     int bufferCounter;
+    float timeStepAziSin;
+    float timeStepAziCos;
     float timestepAzi;
     float timestepEle;
     float timestepRad;
     
+    float resultAzi;
+    float resultEle;
+    float resultRad;
+    
     // Interface Variables
     ToggleButton outputBttn;
     Slider energyThr;
+    Slider numBuffers;
+    Slider noiseThr;
+    Slider diffusenesThr;
     
+    Label energyLabel;
+    Label numBuffersLabel;
+    Label noiseLabel;
+    Label diffusenesLabel;
+
     Random randNum;
+    
+    bool nextBlockReady = false;
+    float point_x;
+    float point_y;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
 };

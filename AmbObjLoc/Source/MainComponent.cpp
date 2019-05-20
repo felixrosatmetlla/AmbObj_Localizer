@@ -14,7 +14,8 @@ MainComponent::MainComponent():forwardFFT(9)
     
     // Make sure you set the size of the component after
     // you add any child components.
-    setSize (800, 600);
+    setSize (960, 530);
+    startTimerHz(60);
     
     outputBttn.setBounds(0, 0, 100, 100);
     outputBttn.setButtonText("Output Audio");
@@ -22,12 +23,51 @@ MainComponent::MainComponent():forwardFFT(9)
 
     addAndMakeVisible(outputBttn);
     
-    energyThr.setBounds(0, 150, 100, 120);
+    energyLabel.setText("Energy Thr.", dontSendNotification);
+    energyLabel.attachToComponent(&energyThr, false);
+    addAndMakeVisible(energyLabel);
+    
+    energyThr.setBounds(25, 100, 100, 120);
     energyThr.setRange(0, 2);
-    energyThr.setSliderStyle(Slider::SliderStyle::LinearVertical);
+    energyThr.setSliderStyle(Slider::SliderStyle::RotaryVerticalDrag);
     energyThr.setValue(0.5);
     energyThr.setTextBoxStyle(Slider::TextBoxBelow, true, 70, 20);
     addAndMakeVisible(energyThr);
+    
+    numBuffersLabel.setText("Number Buffers", dontSendNotification);
+    numBuffersLabel.attachToComponent(&numBuffers, false);
+    addAndMakeVisible(numBuffersLabel);
+    
+    numBuffers.setBounds(150, 100, 100, 120);
+    numBuffers.setRange(1, 100, 1);
+    numBuffers.setSliderStyle(Slider::SliderStyle::RotaryVerticalDrag);
+    numBuffers.setValue(10);
+    numBuffers.setTextBoxStyle(Slider::TextBoxBelow, true, 70, 20);
+    addAndMakeVisible(numBuffers);
+    
+    noiseLabel.setText("Noise Level", dontSendNotification);
+    noiseLabel.attachToComponent(&noiseThr, false);
+    addAndMakeVisible(noiseLabel);
+    
+    noiseThr.setBounds(150, 300, 100, 120);
+    noiseThr.setRange(0, 1e-1);
+    noiseThr.setSliderStyle(Slider::SliderStyle::RotaryVerticalDrag);
+    noiseThr.setValue(1e-6);
+    noiseThr.setSkewFactorFromMidPoint(1e-4);
+    noiseThr.setTextBoxStyle(Slider::TextBoxBelow, true, 70, 20);
+    addAndMakeVisible(noiseThr);
+    
+    
+    diffusenesLabel.setText("Diffuseness Thr.", dontSendNotification);
+    diffusenesLabel.attachToComponent(&diffusenesThr, false);
+    addAndMakeVisible(diffusenesLabel);
+    
+    diffusenesThr.setBounds(25, 300, 100, 120);
+    diffusenesThr.setRange(0, 1);
+    diffusenesThr.setSliderStyle(Slider::SliderStyle::RotaryVerticalDrag);
+    diffusenesThr.setValue(0.9);
+    diffusenesThr.setTextBoxStyle(Slider::TextBoxBelow, true, 70, 20);
+    addAndMakeVisible(diffusenesThr);
     
     // Some platforms require permissions to open input channels so request that here
     if (RuntimePermissions::isRequired (RuntimePermissions::recordAudio)
@@ -89,6 +129,12 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRat
     radius = (float*)calloc(num_frames,sample_size_bytes);
     
     bufferCounter = 0;
+    
+    timeStepAziSin = 0;
+    timeStepAziCos = 0;
+    timestepEle = 0;
+    timestepAzi = 0;
+    timestepRad = 0;
 
 }
 
@@ -112,12 +158,14 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
     float aziSin = 0;
     float aziCos = 0;
     
+    
+    
     // Get input audio from microphone
     for(int ch = 0; ch < bufferToFill.buffer->getNumChannels(); ch++ ){
         for(int sample = 0; sample < bufferToFill.buffer->getNumSamples(); sample++ ){
             audioBuffer[ch][sample] = *bufferToFill.buffer->getWritePointer(ch, sample);
             //std::cout << "ch_" << ch << ": " << audioBuffer[ch][sample] << std::endl;
-            audioBuffer[ch][sample] += (randNum.nextFloat() - 0.5) * noiseLevel;
+            audioBuffer[ch][sample] += (randNum.nextFloat() - 0.5) * noiseThr.getValue();
             bufferEnergy[ch] = bufferEnergy[ch] + pow(*bufferToFill.buffer->getReadPointer(ch, sample),2);
         
         }
@@ -164,8 +212,8 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
         getDOA(complexFFTBuffer, forwardFFT.getSize() + 1);
         
         /*for(int sample = 0; sample<forwardFFT.getSize() + 1; sample++){
-            std::cout << "azi: " << azimuth[sample] << std::endl;
-            std::cout << "ele: " << elevation[sample] << std::endl;
+            //std::cout << "azi: " << azimuth[sample] << std::endl;
+            //std::cout << "ele: " << elevation[sample] << std::endl;
             //std::cout << "radius: " << radius[sample] << std::endl;
         }*/
         
@@ -179,17 +227,12 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
         int counter = 0;
         
         for(int sample = 0; sample < forwardFFT.getSize() + 1; sample++){
-            if(diffuseness[sample] > 0.9){
+            if(diffuseness[sample] > diffusenesThr.getValue()){
                 if(!std::isnan(azimuth[sample])){
                     
-                    if(azimuth[sample] < 0){
-                        aziSin += std::sin(MathConstants<float>::twoPi - azimuth[sample]);
-                        aziCos += std::cos(MathConstants<float>::twoPi - azimuth[sample]);
-                    } else {
-                        aziSin += std::sin(azimuth[sample]);
-                        aziCos += std::cos(azimuth[sample]);;
-                    }
-
+                    aziSin += std::sin(azimuth[sample]);
+                    aziCos += std::cos(azimuth[sample]);
+                    
                     //bufferAzi += azimuth[sample];
                     bufferEle += elevation[sample];
                     bufferRad += radius[sample];
@@ -199,35 +242,55 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
             }
         }
         
-        aziSin = aziSin/counter;
-        aziCos = aziCos/counter;
+        //aziSin = aziSin/counter;
+        //aziCos = aziCos/counter;
         
         bufferAzi = std::atan2(aziSin, aziCos);
-        
+        if(bufferAzi < 0){
+            bufferAzi += MathConstants<float>::twoPi;
+        }
+        //std::cout << "azimuth: " << bufferAzi << std::endl;
+
         //bufferAzi = bufferAzi/counter;
         bufferEle = bufferEle/counter;
         bufferRad = bufferRad/counter;
         
         
-        if(bufferCounter == 100){
+        if(bufferCounter == numBuffers.getValue()){
             
+            timestepAzi = std::atan2(timeStepAziSin, timeStepAziCos);
+            if(timestepAzi < 0){
+                timestepAzi += MathConstants<float>::twoPi;
+            }
             
-            timestepAzi = timestepAzi/bufferCounter;
             timestepEle = timestepEle/bufferCounter;
             timestepRad = timestepRad/bufferCounter;
             
-            std::cout << "azimuth: " << timestepAzi << std::endl;
-            std::cout << "elevation: " << timestepEle << std::endl;
-            std::cout << "radius: " << timestepRad << std::endl;
+            resultAzi = timestepAzi;
+            resultEle = timestepEle;
+            resultRad = timestepRad;
+            
+            nextBlockReady = true;
+            //std::cout << "azimuth: " << resultAzi << std::endl;
+            //std::cout << "elevation: " << resultEle << std::endl;
+            //std::cout << "radius: " << resultRad << std::endl;
             
             bufferCounter = 0;
+            
+            timeStepAziSin = 0;
+            timeStepAziCos = 0;
+            
             timestepAzi = 0;
             timestepEle = 0;
             timestepRad = 0;
+            
+            
         }
         else{
             
-            timestepAzi += bufferAzi;
+            timeStepAziSin += std::sin(bufferAzi);
+            timeStepAziCos += std::cos(bufferAzi);
+            
             timestepEle += bufferEle;
             timestepRad += bufferRad;
             
@@ -461,6 +524,20 @@ void MainComponent::getDifuseness(std::complex<float>** complexFFTBuffer, size_t
         diffuseness[i] = diffuseness[numSamples - dt/2 -1];
     }
 }
+//==============================================================================
+void MainComponent::timerCallback() {
+    
+    if(nextBlockReady){
+        paintDoA();
+        nextBlockReady = false;
+        repaint();
+    }
+        
+}
+
+void MainComponent::paintDoA() {
+    
+}
 
 //==============================================================================
 void MainComponent::paint (Graphics& g)
@@ -469,6 +546,36 @@ void MainComponent::paint (Graphics& g)
     g.fillAll (getLookAndFeel().findColour (ResizableWindow::backgroundColourId));
 
     // You can add your drawing code here!
+    Rectangle<float> rectArea (visualizer_W, visualizer_H, azi_resolution*2, ele_resolution*2);
+    g.drawRect (rectArea, 2.0f);
+    
+    Line<float> vertLine (visualizer_W, visualizer_H + ele_resolution, visualizer_W + azi_resolution*2, visualizer_H + ele_resolution);
+    g.drawLine(vertLine, 0.5f);
+    
+    Line<float> horLine (visualizer_W + azi_resolution, visualizer_H ,visualizer_W + azi_resolution , visualizer_H + ele_resolution*2);
+    g.drawLine(horLine, 0.5f);
+
+    
+    Rectangle<float> pointArea (5, 5);
+    
+    if(resultAzi > MathConstants<float>::pi){
+        point_x = visualizer_W + (resultAzi - MathConstants<float>::twoPi)*100 + azi_resolution;
+    }
+    else{
+        point_x = visualizer_W + (resultAzi)*100 + azi_resolution;
+    }
+    
+    point_y = visualizer_H + (-1)*(resultEle*100) + ele_resolution;
+    
+    
+    std::cout << "x: " << point_x << std::endl;
+    //std::cout << "y: " << point_y << std::endl;
+    Point<float> pointDoA (point_x, point_y);
+    pointArea.setCentre (pointDoA);
+    
+    g.setColour (Colours::cornflowerblue);
+    g.fillRect (pointArea);
+
 }
 
 void MainComponent::resized()
