@@ -17,57 +17,21 @@ MainComponent::MainComponent():forwardFFT(9)
     setSize (960, 530);
     startTimerHz(60);
     
-    outputBttn.setBounds(0, 0, 100, 100);
-    outputBttn.setButtonText("Output Audio");
-    outputBttn.changeWidthToFitText();
+    createToggleButton(outputBttn, 0, 0, 100, 100, "Output Audio");
+    
+    createLabel(energyLabel, "Energy Thr.", dontSendNotification, &energyThr);
+    createSlider(energyThr, 25, 100, 100, 120, 0, 2, 0.5, Slider::SliderStyle::RotaryVerticalDrag, Slider::TextBoxBelow, true, 70, 20, false);
 
-    addAndMakeVisible(outputBttn);
-    
-    energyLabel.setText("Energy Thr.", dontSendNotification);
-    energyLabel.attachToComponent(&energyThr, false);
-    addAndMakeVisible(energyLabel);
-    
-    energyThr.setBounds(25, 100, 100, 120);
-    energyThr.setRange(0, 2);
-    energyThr.setSliderStyle(Slider::SliderStyle::RotaryVerticalDrag);
-    energyThr.setValue(0.5);
-    energyThr.setTextBoxStyle(Slider::TextBoxBelow, true, 70, 20);
-    addAndMakeVisible(energyThr);
-    
-    numBuffersLabel.setText("Number Buffers", dontSendNotification);
-    numBuffersLabel.attachToComponent(&numBuffers, false);
-    addAndMakeVisible(numBuffersLabel);
-    
-    numBuffers.setBounds(150, 100, 100, 120);
-    numBuffers.setRange(1, 100, 1);
-    numBuffers.setSliderStyle(Slider::SliderStyle::RotaryVerticalDrag);
-    numBuffers.setValue(10);
-    numBuffers.setTextBoxStyle(Slider::TextBoxBelow, true, 70, 20);
-    addAndMakeVisible(numBuffers);
-    
-    noiseLabel.setText("Noise Level", dontSendNotification);
-    noiseLabel.attachToComponent(&noiseThr, false);
-    addAndMakeVisible(noiseLabel);
-    
-    noiseThr.setBounds(150, 300, 100, 120);
-    noiseThr.setRange(0, 1e-1);
-    noiseThr.setSliderStyle(Slider::SliderStyle::RotaryVerticalDrag);
-    noiseThr.setValue(1e-6);
-    noiseThr.setSkewFactorFromMidPoint(1e-4);
-    noiseThr.setTextBoxStyle(Slider::TextBoxBelow, true, 70, 20);
-    addAndMakeVisible(noiseThr);
+    createLabel(numBuffersLabel, "Number Buffers", dontSendNotification, &numBuffers);
+    createSlider(numBuffers, 150, 100, 100, 120, 1, 100, 10, Slider::SliderStyle::RotaryVerticalDrag, Slider::TextBoxBelow, true, 70, 20, false, 1);
+
+    createLabel(noiseLabel, "Noise Level", dontSendNotification, &noiseThr);
+    createSlider(noiseThr, 150, 300, 100, 120, 0, 1e-1, 1e-6, Slider::SliderStyle::RotaryVerticalDrag, Slider::TextBoxBelow, true, 70, 20, true, 0, 1e-4);
     
     
-    diffusenesLabel.setText("Diffuseness Thr.", dontSendNotification);
-    diffusenesLabel.attachToComponent(&diffusenesThr, false);
-    addAndMakeVisible(diffusenesLabel);
+    createLabel(diffusenesLabel, "Diffuseness Thr.", dontSendNotification, &diffusenesThr);
+    createSlider(diffusenesThr, 25, 300, 100, 120, 0, 1, 0.9, Slider::SliderStyle::RotaryVerticalDrag, Slider::TextBoxBelow, true, 70, 20, false);
     
-    diffusenesThr.setBounds(25, 300, 100, 120);
-    diffusenesThr.setRange(0, 1);
-    diffusenesThr.setSliderStyle(Slider::SliderStyle::RotaryVerticalDrag);
-    diffusenesThr.setValue(0.9);
-    diffusenesThr.setTextBoxStyle(Slider::TextBoxBelow, true, 70, 20);
-    addAndMakeVisible(diffusenesThr);
     
     // Some platforms require permissions to open input channels so request that here
     if (RuntimePermissions::isRequired (RuntimePermissions::recordAudio)
@@ -89,6 +53,37 @@ MainComponent::~MainComponent()
     shutdownAudio();
 }
 
+void MainComponent::createToggleButton(ToggleButton &toggleButton, int x, int y, int width, int height, const String &buttonText){
+    
+    toggleButton.setBounds(x, y, width, height);
+    toggleButton.setButtonText("Output Audio");
+    toggleButton.changeWidthToFitText();
+    
+    addAndMakeVisible(toggleButton);
+}
+
+void MainComponent::createLabel(Label &label ,const String &labelText, NotificationType notification, Component *attachComp, bool onLeft){
+    
+    label.setText(labelText, notification);
+    label.attachToComponent(attachComp, onLeft);
+    
+    addAndMakeVisible(label);
+}
+
+void MainComponent::createSlider(Slider &slider, int x, int y, int width, int height, double minRange, double maxRange, double value, Slider::SliderStyle style, Slider::TextEntryBoxPosition textboxPos, bool textboxRead, int textboxWidth, int textboxHeight, bool isSkewed, double interval, double skewFactor){
+    
+    slider.setBounds(x, y, width, height);
+    slider.setRange(minRange, maxRange, interval);
+    slider.setValue(value);
+    slider.setSliderStyle(style);
+    slider.setTextBoxStyle(textboxPos, textboxRead, textboxWidth, textboxHeight);
+    
+    if(isSkewed){
+        slider.setSkewFactorFromMidPoint(skewFactor);
+    }
+    addAndMakeVisible(slider);
+    
+}
 //==============================================================================
 void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRate)
 {

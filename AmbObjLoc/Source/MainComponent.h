@@ -37,7 +37,14 @@ public:
     void prepareToPlay (int samplesPerBlockExpected, double sampleRate) override;
     void getNextAudioBlock (const AudioSourceChannelInfo& bufferToFill) override;
     void releaseResources() override;
-
+    
+    //==============================================================================
+    void createSlider(Slider &slider, int x, int y, int width, int height, double minRange, double maxRange, double value, Slider::SliderStyle style, Slider::TextEntryBoxPosition textboxPos, bool textboxRead, int textboxWidth, int textboxHeight, bool isSkewed, double interval = 0, double skewFactor = 0);
+    
+    void createLabel(Label &label ,const String &labelText, NotificationType notification, Component *attachComp, bool onLeft = false);
+    
+    void createToggleButton(ToggleButton &toggleButton, int x, int y, int width, int height, const String &buttonText);
+    
     //==============================================================================
     void paint (Graphics& g) override;
     void resized() override;
