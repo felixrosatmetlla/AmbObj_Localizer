@@ -45,13 +45,13 @@ public:
     void paintDoA ();
     
     //==============================================================================
-    std::complex<float>** getComplexFFTBuffer(float** fftBuffer, size_t fftSize);
+    void getComplexFFTBuffer(float** fftBuffer, size_t fftSize);
     
-    std::complex<float>* getPressure(std::complex<float>** complexFFTBuffer, size_t numSamples);
-    std::complex<float>** getVelocityVector(std::complex<float>** complexFFTBuffer, size_t numSamples);
+    void getPressure(std::complex<float>** complexFFTBuffer, size_t numSamples);
+    void getVelocityVector(std::complex<float>** complexFFTBuffer, size_t numSamples);
     
-    float** getIntensityVector(std::complex<float>** complexFFTBuffer, size_t numSamples);
-    float* getEnergyVector(std::complex<float>** complexFFTBuffer, size_t numSamples);
+    void getIntensityVector(std::complex<float>** complexFFTBuffer, size_t numSamples);
+    void getEnergyVector(std::complex<float>** complexFFTBuffer, size_t numSamples);
     
     void getDOA(std::complex<float>** complexFFTBuffer, size_t numSamples);
     void getDifuseness(std::complex<float>** complexFFTBuffer, size_t numSamples, int dt = 10);
@@ -92,6 +92,18 @@ private:
     float resultAzi;
     float resultEle;
     float resultRad;
+    
+    std::complex<float>** complexFFTBuffer;
+    std::complex<float>* p_k;
+    std::complex<float>** u_k;
+    float** i_k;
+    
+    float* s1;
+    float* s2;
+    float* e_k;
+    
+    float* i_mean;
+    float* i_norm;
     
     // Interface Variables
     ToggleButton outputBttn;

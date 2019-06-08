@@ -117,11 +117,37 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRat
     
     bufferEnergy = (float*)calloc(N_CH,sample_size_bytes);
     
+    complexFFTBuffer = (std::complex<float>**)calloc(N_CH,sizeof(std::complex<float>*));
+    for(int i = 0; i < N_CH; i++ ){
+        complexFFTBuffer[i] = (std::complex<float>*)calloc(forwardFFT.getSize(),sizeof(std::complex<float>));
+    }
+    
+    p_k = (std::complex<float>*)calloc(forwardFFT.getSize() + 1,sizeof(std::complex<float>));
+    
+    u_k = (std::complex<float>**)calloc(N_CH-1, sizeof(std::complex<float>*));
+    for(int i = 0; i < N_CH-1; i++ ){
+        u_k[i] = (std::complex<float>*)calloc(forwardFFT.getSize() + 1,sizeof(std::complex<float>));
+        
+    }
+    
+    i_k = (float**)calloc(N_CH-1, sizeof(float*));
+    for(int i = 0; i < N_CH-1; i++ ){
+        i_k[i] = (float*)calloc(forwardFFT.getSize() + 1,sizeof(float));
+    }
+    
+    s1 = (float*)calloc(forwardFFT.getSize() + 1,sizeof(float));
+    s2 = (float*)calloc(forwardFFT.getSize() + 1,sizeof(float));
+
+    e_k = (float*)calloc(forwardFFT.getSize() + 1,sizeof(float));
+
+    i_norm = (float*)calloc(forwardFFT.getSize() + 1,sizeof(float));
+
     doa = (float**)calloc(N_CH-1, sizeof(float*));
     for(int i = 0; i < N_CH-1; i++ ){
         doa[i] = (float*)calloc(num_frames*2,sample_size_bytes);
     }
     
+    i_mean = (float*)calloc(N_CH-1,sizeof(float));
     diffuseness = (float*)calloc(num_frames,sample_size_bytes);
     
     azimuth = (float*)calloc(num_frames,sample_size_bytes);
@@ -199,7 +225,7 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
             }
         }*/
         
-        std::complex<float>** complexFFTBuffer = getComplexFFTBuffer(fftBuffer, forwardFFT.getSize() + 1);
+        getComplexFFTBuffer(fftBuffer, forwardFFT.getSize() + 1);
         
         /*for(int ch=0; ch<4; ch++){
             for(int sample = 0; sample<bufferToFill.buffer->getNumSamples(); sample++){
@@ -271,8 +297,8 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
             resultRad = timestepRad;
             
             nextBlockReady = true;
-            //std::cout << "azimuth: " << resultAzi << std::endl;
-            //std::cout << "elevation: " << resultEle << std::endl;
+            std::cout << "azimuth: " << resultAzi << std::endl;
+            std::cout << "elevation: " << resultEle << std::endl;
             //std::cout << "radius: " << resultRad << std::endl;
             
             bufferCounter = 0;
@@ -343,10 +369,33 @@ void MainComponent::releaseResources()
     free(bufferEnergy);
     
     for(int ch = 0; ch < N_CH-1; ch++){
+        free(complexFFTBuffer[ch]);
+    }
+    free(complexFFTBuffer);
+    
+    free(p_k);
+    
+    for(int ch = 0; ch < N_CH-1; ch++){
+        free(u_k[ch]);
+    }
+    free(u_k);
+    
+    for(int ch = 0; ch < N_CH-1; ch++){
+        free(i_k[ch]);
+    }
+    free(i_k);
+    
+    free(s1);
+    free(s2);
+    free(e_k);
+
+    free(i_norm);
+    for(int ch = 0; ch < N_CH-1; ch++){
         free(doa[ch]);
     }
     free(doa);
     
+    free(i_mean);
     free(diffuseness);
     
     free(azimuth);
@@ -357,12 +406,8 @@ void MainComponent::releaseResources()
 }
 
 //==============================================================================
-std::complex<float>** MainComponent::getComplexFFTBuffer(float** fftBuffer, size_t fftSize)
+void MainComponent::getComplexFFTBuffer(float** fftBuffer, size_t fftSize)
 {
-    std::complex<float>** complexFFTBuffer = (std::complex<float>**)calloc(N_CH,sizeof(std::complex<float>*));
-    for(int i = 0; i < N_CH; i++ ){
-        complexFFTBuffer[i] = (std::complex<float>*)calloc(fftSize,sizeof(std::complex<float>));
-    }
     
     for(int channel = 0; channel < N_CH; channel++){
         for(int sample = 0, fftsample = 0; sample < fftSize; sample++, fftsample+=2){
@@ -372,30 +417,24 @@ std::complex<float>** MainComponent::getComplexFFTBuffer(float** fftBuffer, size
         }
     }
     
-    return complexFFTBuffer;
 }
 
-std::complex<float>* MainComponent::getPressure(std::complex<float>** complexFFTBuffer, size_t numSamples)
+void MainComponent::getPressure(std::complex<float>** complexFFTBuffer, size_t numSamples)
 {
-    std::complex<float>* p_k = (std::complex<float>*)calloc(numSamples,sizeof(std::complex<float>));
+    
     std::memcpy(p_k, complexFFTBuffer[0], sizeof(std::complex<float>)*numSamples);
     
     /*for(int sample = 0; sample<numSamples; sample++){
         std::cout << "p_k: " << p_k[sample] << std::endl;
     }*/
     
-    return p_k;
 }
 
-std::complex<float>** MainComponent::getVelocityVector(std::complex<float>** complexFFTBuffer, size_t numSamples)
+void MainComponent::getVelocityVector(std::complex<float>** complexFFTBuffer, size_t numSamples)
 {
     float scale = -1.0/(MathConstants<float>::sqrt2 * p0 * SOUND_SPEED);
     
-    std::complex<float>** u_k = (std::complex<float>**)calloc(N_CH-1, sizeof(std::complex<float>*));
-    for(int i = 0; i < N_CH-1; i++ ){
-        u_k[i] = (std::complex<float>*)calloc(numSamples,sizeof(std::complex<float>));
-        
-    }
+    
     
     for(int i = 1; i < N_CH; i++ ){
         std::memcpy(u_k[i-1], complexFFTBuffer[i], sizeof(std::complex<float>)*numSamples);
@@ -406,18 +445,14 @@ std::complex<float>** MainComponent::getVelocityVector(std::complex<float>** com
         }
     }
     
-    return u_k;
 }
 
-float** MainComponent::getIntensityVector(std::complex<float>** complexFFTBuffer, size_t numSamples)
+void MainComponent::getIntensityVector(std::complex<float>** complexFFTBuffer, size_t numSamples)
 {
-    std::complex<float>* p_k = getPressure(complexFFTBuffer, numSamples);
-    std::complex<float>** u_k = getVelocityVector(complexFFTBuffer, numSamples);
+    getPressure(complexFFTBuffer, numSamples);
+    getVelocityVector(complexFFTBuffer, numSamples);
     
-    float** i_k = (float**)calloc(N_CH-1, sizeof(float*));
     for(int i = 0; i < N_CH-1; i++ ){
-        i_k[i] = (float*)calloc(numSamples,sizeof(float));
-        
         for(int j = 0; j < numSamples; j++){
             std::complex<float> pk_uk = p_k[j] * std::conj(u_k[i][j]);
             i_k[i][j] = 0.5 * pk_uk.real();
@@ -427,38 +462,29 @@ float** MainComponent::getIntensityVector(std::complex<float>** complexFFTBuffer
         }
     }
     
-    return i_k;
 }
 
-float* MainComponent::getEnergyVector(std::complex<float>** complexFFTBuffer, size_t numSamples)
+void MainComponent::getEnergyVector(std::complex<float>** complexFFTBuffer, size_t numSamples)
 {
-    std::complex<float>* p_k = getPressure(complexFFTBuffer, numSamples);
-    std::complex<float>** u_k = getVelocityVector(complexFFTBuffer, numSamples);
+    getPressure(complexFFTBuffer, numSamples);
+    getVelocityVector(complexFFTBuffer, numSamples);
     
-    float* s1 = (float*)calloc(numSamples,sizeof(float));
-    float* s2 = (float*)calloc(numSamples,sizeof(float));
-    
-    float* energy = (float*)calloc(numSamples,sizeof(float));
-
     for(int sample = 0; sample < numSamples; sample++){
         float u_norm = std::sqrt(u_k[0][sample] * u_k[0][sample] + u_k[1][sample] * u_k[1][sample] + u_k[2][sample] * u_k[2][sample]).real();
         s1[sample] = std::pow(u_norm, 2);
         
         s2[sample] = std::pow(std::abs(p_k[sample]), 2);
         
-        energy[sample] = ((p0/4.0) * s1[sample]) + ((1.0/(4 * p0 * std::pow(SOUND_SPEED, 2))) * s2[sample]);
+        e_k[sample] = ((p0/4.0) * s1[sample]) + ((1.0/(4 * p0 * std::pow(SOUND_SPEED, 2))) * s2[sample]);
     }
     
-    return energy;
     
 }
 
 void MainComponent::getDOA(std::complex<float>** complexFFTBuffer, size_t numSamples)
 {
-    float** i_k = getIntensityVector(complexFFTBuffer, numSamples);
+    getIntensityVector(complexFFTBuffer, numSamples);
     
-    
-    float* i_norm = (float*)calloc(numSamples,sizeof(float));
     
     for(int sample = 0; sample < numSamples; sample++){
         i_norm[sample] = std::sqrt(std::pow(i_k[0][sample], 2) + std::pow(i_k[1][sample], 2) + std::pow(i_k[2][sample], 2));
@@ -495,10 +521,9 @@ void MainComponent::cart2Sph(float** doa, size_t numSamples){
 
 void MainComponent::getDifuseness(std::complex<float>** complexFFTBuffer, size_t numSamples, int dt)
 {
-    float** i_k = getIntensityVector(complexFFTBuffer, numSamples);
-    float* e_k = getEnergyVector(complexFFTBuffer, numSamples);
+    getIntensityVector(complexFFTBuffer, numSamples);
+    getEnergyVector(complexFFTBuffer, numSamples);
     
-    float* i_mean = (float*)calloc(N_CH-1,sizeof(float));
     float e_mean = 0;
     
     for(int i = dt/2; i < numSamples - dt/2; i++){
@@ -568,7 +593,7 @@ void MainComponent::paint (Graphics& g)
     point_y = visualizer_H + (-1)*(resultEle*100) + ele_resolution;
     
     
-    std::cout << "x: " << point_x << std::endl;
+    //std::cout << "x: " << point_x << std::endl;
     //std::cout << "y: " << point_y << std::endl;
     Point<float> pointDoA (point_x, point_y);
     pointArea.setCentre (pointDoA);
