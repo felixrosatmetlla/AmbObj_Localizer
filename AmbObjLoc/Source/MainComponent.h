@@ -46,6 +46,9 @@ public:
     void createToggleButton(ToggleButton &toggleButton, int x, int y, int width, int height, const String &buttonText);
     
     //==============================================================================
+    void writeXMLData (float azimuth, float elevation);
+    
+    //==============================================================================
     void paint (Graphics& g) override;
     void resized() override;
     
@@ -129,6 +132,8 @@ private:
     bool nextBlockReady = false;
     float point_x;
     float point_y;
+    
+    XmlElement data;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
 };

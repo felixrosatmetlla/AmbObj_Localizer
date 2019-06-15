@@ -9,7 +9,7 @@
 #include "MainComponent.h"
 
 //==============================================================================
-MainComponent::MainComponent():forwardFFT(9)
+MainComponent::MainComponent():forwardFFT(9), data("Data")
 {
     
     // Make sure you set the size of the component after
@@ -51,6 +51,9 @@ MainComponent::~MainComponent()
 {
     // This shuts down the audio device and clears the audio source.
     shutdownAudio();
+    
+    String dataToString = data.createDocument(String());
+    data.writeToFile(File("/Users/felixrosatmetlla/Desktop/TFG/AmbObj_Localizer/AmbObjLoc/AppData/appdata.xml"), String());
 }
 
 void MainComponent::createToggleButton(ToggleButton &toggleButton, int x, int y, int width, int height, const String &buttonText){
@@ -84,6 +87,7 @@ void MainComponent::createSlider(Slider &slider, int x, int y, int width, int he
     addAndMakeVisible(slider);
     
 }
+
 //==============================================================================
 void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRate)
 {
@@ -292,6 +296,7 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
             resultRad = timestepRad;
             
             nextBlockReady = true;
+            MainComponent::writeXMLData (resultAzi, resultEle);
             std::cout << "azimuth: " << resultAzi << std::endl;
             std::cout << "elevation: " << resultEle << std::endl;
             //std::cout << "radius: " << resultRad << std::endl;
@@ -544,6 +549,15 @@ void MainComponent::getDifuseness(std::complex<float>** complexFFTBuffer, size_t
         diffuseness[i] = diffuseness[numSamples - dt/2 -1];
     }
 }
+//==============================================================================
+void MainComponent::writeXMLData (float azimuth, float elevation) {
+    
+    XmlElement* result = new XmlElement("Result");
+    result->setAttribute("Azimuth", azimuth);
+    result->setAttribute("Elevation", elevation);
+    data.addChildElement(result);
+}
+
 //==============================================================================
 void MainComponent::timerCallback() {
     
