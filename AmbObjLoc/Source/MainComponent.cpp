@@ -32,6 +32,7 @@ MainComponent::MainComponent():forwardFFT(9), data("Data")
     createLabel(diffusenesLabel, "Diffuseness Thr.", dontSendNotification, &diffusenesThr);
     createSlider(diffusenesThr, 25, 300, 100, 120, 0, 1, 0.9, Slider::SliderStyle::RotaryVerticalDrag, Slider::TextBoxBelow, true, 70, 20, false);
     
+    numBuffers.onValueChange = [this] { bufferCounter = 0; };
     
     // Some platforms require permissions to open input channels so request that here
     if (RuntimePermissions::isRequired (RuntimePermissions::recordAudio)
